@@ -3,7 +3,9 @@
 # This script allows for retention parameters, global or database/collection specific backups
 
 # Log this script output to a file
-exec > ${SCRIPTPATH}/log/mongo_backup.log 2>&1
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3
+exec 1> "$BACKUP_DIR"/log/mongo_backup.log2>&1
 
 ###########################
 ####### LOAD CONFIG #######
