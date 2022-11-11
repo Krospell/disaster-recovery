@@ -1,14 +1,13 @@
 #!/bin/bash
-# Script to backup a PostgreSQL database from a remote machine
-# This script allows for retention parameters, global or database-specific backups
+# Script to backup a MongoDB machine from a remote server
+# This script allows for retention parameters, global or database/collection specific backups
 
 # Log this script output to a file
-exec > ${SCRIPTPATH}/pg_backup.log 2>&1
+exec > ${SCRIPTPATH}/log/mongo_backup.log 2>&1
 
 ###########################
 ####### LOAD CONFIG #######
 ###########################
-
 while [ $# -gt 0 ]; do
         case $1 in
                 -c)
@@ -24,7 +23,7 @@ done
 
 if [ -z $CONFIG_FILE_PATH ] ; then
         SCRIPTPATH=$(cd ${0%/*} && pwd -P)
-        CONFIG_FILE_PATH="${SCRIPTPATH}/pg_backup.config"
+        CONFIG_FILE_PATH="${SCRIPTPATH}/mongo_backup.config"
 fi
 
 if [ ! -r ${CONFIG_FILE_PATH} ] ; then
@@ -37,7 +36,6 @@ source "${CONFIG_FILE_PATH}"
 ###########################
 #### PRE-BACKUP CHECKS ####
 ###########################
-
 # Verify that this script is running as the specified user
 if [ "$BACKUP_USER" != "" -a "$(id -un)" != "$BACKUP_USER" ] ; then
 	echo "This script must be run as $BACKUP_USER. Exiting." 1>&2
@@ -52,20 +50,20 @@ fi
 ###########################
 ### INITIALISE DEFAULTS ###
 ###########################
-
+# As MongoDB has no enabled access control by default, assume the use of empty values
+# in the case that the configured variables are empty
 if [ ! $HOSTNAME ]; then
-	HOSTNAME="localhost"
+	HOSTNAME=""
 fi;
 
 if [ ! $USERNAME ]; then
-	USERNAME="postgres"
+	USERNAME=""
 fi;
 
 
 ###########################
 #### START THE BACKUPS ####
 ###########################
-
 function perform_backups()
 {
 	SUFFIX=$1
@@ -78,53 +76,22 @@ function perform_backups()
 		exit 1;
 	fi;
 	
-	#######################
-	### GLOBALS BACKUPS ###
-	#######################
-
-	echo -e "\n\nPerforming globals backup"
-	echo -e "--------------------------------------------\n"
-
-	if [ $ENABLE_GLOBALS_BACKUPS = "yes" ]
-	then
-		    echo "Globals backup"
-
-		    set -o pipefail
-		    if ! PGPASSWORD=PG_PASS pg_dumpall -g -h "$HOSTNAME" -U "$USERNAME" | gzip > $FINAL_BACKUP_DIR"globals".sql.gz.in_progress; then
-		            echo "[!!ERROR!!] Failed to produce globals backup" 1>&2
-		    else
-		            mv $FINAL_BACKUP_DIR"globals".sql.gz.in_progress $FINAL_BACKUP_DIR"globals".sql.gz
-		    fi
-		    set +o pipefail
-	else
-		echo "None"
-	fi
-	
 	###########################
 	###### FULL BACKUPS #######
 	###########################
 	echo -e "\n\nPerforming full database backups"
 	echo -e "--------------------------------------------\n"
 
-	if [ $ENABLE_PLAIN_BACKUPS = "yes" ]
-	then
 		echo "Plain backup of $DATABASE"
 	 
 		set -o pipefail
-		if ! PGPASSWORD=PG_PASS pg_dump -Fp -h "$HOSTNAME" -U "$USERNAME" -d "$DATABASE" -p "$PORT" | gzip > $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress; then
-			echo "[!!ERROR!!] Failed to produce plain backup database $DATABASE" 1>&2
-		else
-			mv $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress $FINAL_BACKUP_DIR"$DATABASE".sql.gz
-		fi
+		mongodump --uri="$URI" --out="$FINAL_BACKUP_DIR" --gzip --oplog
 		set +o pipefail
-                        
-	fi
 
 	echo -e "\nAll database backups complete!"
 }
 
 # MONTHLY BACKUPS
-
 DAY_OF_MONTH=`date +%d`
 
 if [ $DAY_OF_MONTH -eq 1 ];
@@ -138,7 +105,6 @@ then
 fi
 
 # WEEKLY BACKUPS
-
 DAY_OF_WEEK=`date +%u` #1-7 (Monday-Sunday)
 EXPIRED_DAYS=`expr $((($WEEKS_TO_KEEP * 7) + 1))`
 
@@ -153,8 +119,7 @@ then
 fi
 
 # DAILY BACKUPS
-
-# Delete daily backups 7 days old or more
+# Delete daily of 7 days or more
 find $BACKUP_DIR -maxdepth 1 -mtime +$DAYS_TO_KEEP -name "*-daily" -exec rm -rf '{}' ';'
 
 perform_backups "-daily"
