@@ -3,7 +3,9 @@
 # This script allows for retention parameters, global or database-specific backups
 
 # Log this script output to a file
-exec > ${SCRIPTPATH}/log/pg_backup.log 2>&1
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3
+exec 1> "$BACKUP_DIR"/log/pg_backup.log2>&1
 
 ###########################
 ####### LOAD CONFIG #######
@@ -90,7 +92,7 @@ function perform_backups()
 		    echo "Globals backup"
 
 		    set -o pipefail
-		    if ! PGPASSWORD=PG_PASS pg_dumpall -g -h "$HOSTNAME" -U "$USERNAME" | gzip > $FINAL_BACKUP_DIR"globals".sql.gz.in_progress; then
+		    if ! PGPASSWORD="$PG_PASS" pg_dumpall -g -h "$HOSTNAME" -U "$USERNAME" | gzip > $FINAL_BACKUP_DIR"globals".sql.gz.in_progress; then
 		            echo "[!!ERROR!!] Failed to produce globals backup" 1>&2
 		    else
 		            mv $FINAL_BACKUP_DIR"globals".sql.gz.in_progress $FINAL_BACKUP_DIR"globals".sql.gz
@@ -111,7 +113,7 @@ function perform_backups()
 		echo "Plain backup of $DATABASE"
 	 
 		set -o pipefail
-		if ! PGPASSWORD=PG_PASS pg_dump -Fp -h "$HOSTNAME" -U "$USERNAME" -d "$DATABASE" -p "$PORT" | gzip > $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress; then
+		if ! PGPASSWORD="$PG_PASS" pg_dump -Fp -h "$HOSTNAME" -U "$USERNAME" -d "$DATABASE" -p "$PORT" | gzip > $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress; then
 			echo "[!!ERROR!!] Failed to produce plain backup database $DATABASE" 1>&2
 		else
 			mv $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress $FINAL_BACKUP_DIR"$DATABASE".sql.gz
