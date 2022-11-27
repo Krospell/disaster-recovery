@@ -2,11 +2,8 @@
 ## POSTGRESQL BACKUP CONFIG ##
 ##############################
 
-# Remote user to connect to
-REMOTE_USER='admin'
-
-# Remote IP to connect to
-REMOTE_IP='0.0.0.0'
+# Remote machine to connect to in order to transfer backup files.
+REMOTE_NAME='admin-myserver'
 
 # Docker database container name to enter
 CONTAINER_NAME='service_postgres-1'
@@ -34,15 +31,8 @@ PORT='25060'
 # running as.
 BACKUP_DIR='/home/admin/backups/server-name/'
 
-# Will produce a custom-format backup if set to "yes"
-ENABLE_CUSTOM_BACKUPS='yes'
-
 # Will produce a gzipped plain-format backup if set to "yes"
 ENABLE_PLAIN_BACKUPS='yes'
-
-# Will produce gzipped sql file containing the cluster globals, like users and passwords, if set to "yes"
-ENABLE_GLOBALS_BACKUPS='no'
-
 
 ### Retention settings ###
 

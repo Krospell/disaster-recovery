@@ -1,6 +1,6 @@
 #!/bin/bash
-# Script to backup a Docker containerized PostgreSQL database from a remote machine
-# This script allows for retention parameters, global or database-specific backups
+# Script to backup a Docker containerized PostgreSQL database to a remote machine
+# This script allows for retention parameters and creates global backups
 # Backups are made locally and then pushed to a remote using the `scp` protocol
 
 # Log this script output to a file
@@ -81,49 +81,27 @@ function perform_backups()
 		exit 1;
 	fi;
 	
-	#######################
-	### GLOBALS BACKUPS ###
-	#######################
-
-	echo -e "\n\nPerforming globals backup"
-	echo -e "--------------------------------------------\n"
-
-	if [ $ENABLE_GLOBALS_BACKUPS = "yes" ]
-	then
-		    echo "Globals backup"
-
-		    set -o pipefail
-		    if ! docker exec "$CONTAINER_NAME" /bin/bash -c "PGPASSWORD=${PG_PASS} pg_dumpall -g -h ${HOSTNAME} -U ${USERNAME}" | gzip > $FINAL_BACKUP_DIR"globals".sql.gz.in_progress; then
-		            echo "[!!ERROR!!] Failed to produce globals backup" 1>&2
-		    else
-		            mv $FINAL_BACKUP_DIR"globals".sql.gz.in_progress $FINAL_BACKUP_DIR"globals".sql.gz && scp $FINAL_BACKUP_DIR"globals".sql.gz "${REMOTE_USER}"@"${REMOTE_IP}":"${BACKUP_DIR}"
-		    fi
-		    set +o pipefail
-	else
-		echo "None"
-	fi
-	
 	###########################
 	###### FULL BACKUPS #######
 	###########################
-	echo -e "\n\nPerforming full database backups"
-	echo -e "--------------------------------------------\n"
+    echo -e "\n\nPerforming full database backups"
+    echo -e "--------------------------------------------\n"
 
-	if [ $ENABLE_PLAIN_BACKUPS = "yes" ]
-	then
-		echo "Plain backup of $DATABASE"
-	 
-		set -o pipefail
-		if ! docker exec "$CONTAINER_NAME" /bin/bash -c "PGPASSWORD=${PG_PASS} pg_dump -Fp -h ${HOSTNAME} -U ${USERNAME} -d ${DATABASE} -p ${PORT}" | gzip > $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress; then
-			echo "[!!ERROR!!] Failed to produce plain backup database $DATABASE" 1>&2
-		else
-			mv $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress $FINAL_BACKUP_DIR"$DATABASE".sql.gz && scp $FINAL_BACKUP_DIR"globals".sql.gz "${REMOTE_USER}"@"${REMOTE_IP}":"${BACKUP_DIR}"
-		fi
-		set +o pipefail
-                        
-	fi
+    if [ $ENABLE_PLAIN_BACKUPS = "yes" ]
+        then
+            echo "Plain global backup of all databases"
 
-	echo -e "\nAll database backups complete!"
+            set -o pipefail
+            if ! docker exec "$CONTAINER_NAME" /bin/bash -c "PGPASSWORD=${PG_PASS} pg_dump -U ${USERNAME} ${DATABASE}" | gzip > $FINAL_BACKUP_DIR"global".sql.gz.in_progress; then
+                    echo "[!!ERROR!!] Failed to produce plain backup" 1>&2
+            else
+                    mv $FINAL_BACKUP_DIR"global".sql.gz.in_progress $FINAL_BACKUP_DIR"global".sql.gz && scp -r $FINAL_BACKUP_DIR "${REMOTE_NAME}":"${BACKUP_DIR}"
+            fi
+            set +o pipefail
+
+    fi
+
+    echo -e "\nAll database backups complete!"
 }
 
 # MONTHLY BACKUPS
