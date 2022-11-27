@@ -4,7 +4,9 @@
 # Backups are made locally and then pushed to a remote using the `scp` protocol
 
 # Log this script output to a file
-exec > ${SCRIPTPATH}/log/docker_pg_backup.log 2>&1
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3
+exec 1> "$BACKUP_DIR"/log/docker_pg_backup.log 2>&1
 
 ###########################
 ####### LOAD CONFIG #######
