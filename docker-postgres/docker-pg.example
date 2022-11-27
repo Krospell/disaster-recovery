@@ -2,6 +2,12 @@
 ## POSTGRESQL BACKUP CONFIG ##
 ##############################
 
+# Remote user to connect to
+REMOTE_USER='admin'
+
+# Remote IP to connect to
+REMOTE_IP='0.0.0.0'
+
 # Docker database container name to enter
 CONTAINER_NAME='service_postgres-1'
 
