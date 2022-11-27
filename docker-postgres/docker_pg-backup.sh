@@ -1,6 +1,7 @@
 #!/bin/bash
 # Script to backup a Docker containerized PostgreSQL database from a remote machine
 # This script allows for retention parameters, global or database-specific backups
+# Backups are made locally and then pushed to a remote using the `scp` protocol
 
 # Log this script output to a file
 exec > ${SCRIPTPATH}/log/docker_pg_backup.log 2>&1
@@ -93,7 +94,7 @@ function perform_backups()
 		    if ! docker exec "$CONTAINER_NAME" /bin/bash -c "PGPASSWORD=${PG_PASS} pg_dumpall -g -h ${HOSTNAME} -U ${USERNAME}" | gzip > $FINAL_BACKUP_DIR"globals".sql.gz.in_progress; then
 		            echo "[!!ERROR!!] Failed to produce globals backup" 1>&2
 		    else
-		            mv $FINAL_BACKUP_DIR"globals".sql.gz.in_progress $FINAL_BACKUP_DIR"globals".sql.gz
+		            mv $FINAL_BACKUP_DIR"globals".sql.gz.in_progress $FINAL_BACKUP_DIR"globals".sql.gz && scp $FINAL_BACKUP_DIR"globals".sql.gz "${REMOTE_USER}"@"${REMOTE_IP}":"${BACKUP_DIR}"
 		    fi
 		    set +o pipefail
 	else
@@ -114,7 +115,7 @@ function perform_backups()
 		if ! docker exec "$CONTAINER_NAME" /bin/bash -c "PGPASSWORD=${PG_PASS} pg_dump -Fp -h ${HOSTNAME} -U ${USERNAME} -d ${DATABASE} -p ${PORT}" | gzip > $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress; then
 			echo "[!!ERROR!!] Failed to produce plain backup database $DATABASE" 1>&2
 		else
-			mv $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress $FINAL_BACKUP_DIR"$DATABASE".sql.gz
+			mv $FINAL_BACKUP_DIR"$DATABASE".sql.gz.in_progress $FINAL_BACKUP_DIR"$DATABASE".sql.gz && scp $FINAL_BACKUP_DIR"globals".sql.gz "${REMOTE_USER}"@"${REMOTE_IP}":"${BACKUP_DIR}"
 		fi
 		set +o pipefail
                         
